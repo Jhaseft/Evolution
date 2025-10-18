@@ -4,7 +4,7 @@ import { Inertia } from "@inertiajs/inertia";
 import InstanceForm from "@/Components/Evolution/IntanceForm";
 import PairingModal from "@/Components/Evolution/PairingModal";
 
-export default function Test() {
+export default function PublicTest() {
   const [instanceName, setInstanceName] = useState("");
   const [number, setNumber] = useState("");
   const [pairingCode, setPairingCode] = useState("");
@@ -14,6 +14,7 @@ export default function Test() {
   const [message, setMessage] = useState({ type: "", text: "" });
   const [connectionState, setConnectionState] = useState("pending"); // pending, connected, failed
 
+  //  CREAR instancia sin BD (ruta pública)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setProcessing(true);
@@ -21,7 +22,7 @@ export default function Test() {
     setConnectionState("pending");
 
     try {
-      const res = await axios.post("/evolution/create", { instanceName, number });
+      const res = await axios.post("/evolution/public/create", { instanceName, number });
 
       if (res.data.error) {
         setMessage({ type: "error", text: res.data.message });
@@ -32,7 +33,6 @@ export default function Test() {
           setShowModal(true);
           setCountdown(30);
           setMessage({ type: "success", text: "Instancia creada correctamente." });
-      
         } else {
           setMessage({ type: "error", text: "No se pudo generar el código de emparejamiento." });
         }
@@ -45,45 +45,42 @@ export default function Test() {
     }
   };
 
-  // Verificar conexión cada 3 segundos mientras countdown > 0
+  // 🟡 Verificar conexión cada 3 segundos
   useEffect(() => {
     if (!showModal) return;
     const interval = setInterval(async () => {
       try {
-        const res = await axios.get(`/evolution/status/${instanceName}`);
-        const connected = res.data.connected;
-        if (connected) {
+        const res = await axios.get(`/evolution/public/status/${instanceName}`);
+        if (res.data.connected) {
           setConnectionState("connected");
           clearInterval(interval);
           setTimeout(() => {
             setShowModal(false);
-            Inertia.visit("/dashboard");
+            setMessage({ type: "success", text: "Instancia conectada correctamente Jaime" });
           }, 2000);
         }
       } catch {
-        // no hacemos nada aún, se maneja al finalizar countdown
+        // no hacemos nada
       }
     }, 3000);
-
     return () => clearInterval(interval);
   }, [showModal, instanceName]);
 
-  // Countdown
+  //  Countdown
   useEffect(() => {
     if (!showModal || countdown <= 0) return;
-
     const timer = setInterval(() => setCountdown((prev) => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [showModal, countdown]);
 
-  // Cuando el countdown llega a 0
+  // ❌ Si se acaba el tiempo y no se conectó, eliminar
   useEffect(() => {
     if (countdown === 0 && showModal && connectionState !== "connected") {
       setConnectionState("failed");
-      axios.delete(`/evolution/destroy/${instanceName}`)
+      axios.delete(`/evolution/public/destroy/${instanceName}`)
         .then(() => setMessage({ type: "error", text: "Instancia eliminada por timeout." }))
         .finally(() => setTimeout(() => setShowModal(false), 3000));
-        Inertia.visit("/dashboard");
+
     }
   }, [countdown, showModal, connectionState, instanceName]);
 
@@ -93,7 +90,7 @@ export default function Test() {
                       rounded-r-3xl border-l-4 border-r-4 border-green-500 shadow-2xl hover:shadow-green-600 transition-shadow duration-300">
         <h2 className="text-2xl text-center mb-6 bg-clip-text text-transparent 
                        bg-gradient-to-r from-green-400 to-green-900 tracking-wide">
-          Enlazar WhatsApp con Evolution
+          Crear instancia pública (sin BD)
         </h2>
 
         <InstanceForm

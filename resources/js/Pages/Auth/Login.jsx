@@ -1,10 +1,6 @@
-import Checkbox from '@/Components/Checkbox';
-import InputError from '@/Components/InputError';
-import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
-import TextInput from '@/Components/TextInput';
-import GuestLayout from '@/Layouts/GuestLayout';
+import { useState } from "react";
 import { Head, Link, useForm } from '@inertiajs/react';
+import GoogleLoginButton from "./GoogleLoginButton";
 
 export default function Login({ status, canResetPassword }) {
     const { data, setData, post, processing, errors, reset } = useForm({
@@ -17,84 +13,100 @@ export default function Login({ status, canResetPassword }) {
         e.preventDefault();
 
         post(route('login'), {
-            onFinish: () => reset('password'),
+            onFinish: () => reset('password'), // limpia el password
+            preserveState: true, // opcional para mantener otros campos
         });
     };
 
     return (
-        <GuestLayout>
-            <Head title="Log in" />
+        <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
+            <Head title="Login" />
 
-            {status && (
-                <div className="mb-4 text-sm font-medium text-green-600">
-                    {status}
-                </div>
-            )}
+            <form
+                onSubmit={submit}
+                className="w-full max-w-md p-8 bg-gradient-to-br from-gray-800 via-black to-gray-900
+                           rounded-r-3xl border-l-4 border-r-4 border-green-500 shadow-2xl hover:shadow-green-600 transition-shadow duration-300"
+            >
+                <h2 className="text-2xl text-center mb-6 bg-clip-text text-transparent 
+                               bg-gradient-to-r from-green-400 to-green-900 tracking-wide">
+                    Iniciar Sesión
+                </h2>
 
-            <form onSubmit={submit}>
-                <div>
-                    <InputLabel htmlFor="email" value="Email" />
+                {status && <div className="mb-4 text-sm font-medium text-green-400">{status}</div>}
 
-                    <TextInput
+                {/* Email */}
+                <div className="mb-4">
+                    <label htmlFor="email" className="block text-green-400 font-medium mb-1">Email</label>
+                    <input
                         id="email"
                         type="email"
                         name="email"
                         value={data.email}
-                        className="mt-1 block w-full"
-                        autoComplete="username"
-                        isFocused={true}
                         onChange={(e) => setData('email', e.target.value)}
+                        className="w-full px-4 py-2 rounded-lg border border-green-400 bg-gray-800 text-green-200
+                                   focus:outline-none focus:ring-2 focus:ring-green-500"
+                        required
+                        autoComplete="username"
                     />
-
-                    <InputError message={errors.email} className="mt-2" />
+                    {errors.email && <p className="text-red-500 mt-1 text-sm">{errors.email}</p>}
                 </div>
 
-                <div className="mt-4">
-                    <InputLabel htmlFor="password" value="Password" />
-
-                    <TextInput
+                {/* Password */}
+                <div className="mb-4">
+                    <label htmlFor="password" className="block text-green-400 font-medium mb-1">Contraseña</label>
+                    <input
                         id="password"
                         type="password"
                         name="password"
                         value={data.password}
-                        className="mt-1 block w-full"
-                        autoComplete="current-password"
                         onChange={(e) => setData('password', e.target.value)}
+                        className="w-full px-4 py-2 rounded-lg border border-green-400 bg-gray-800 text-green-200
+                                   focus:outline-none focus:ring-2 focus:ring-green-500"
+                        required
+                        autoComplete="current-password"
                     />
-
-                    <InputError message={errors.password} className="mt-2" />
+                    {errors.password && <p className="text-red-500 mt-1 text-sm">{errors.password}</p>}
                 </div>
 
-                <div className="mt-4 block">
-                    <label className="flex items-center">
-                        <Checkbox
-                            name="remember"
-                            checked={data.remember}
-                            onChange={(e) =>
-                                setData('remember', e.target.checked)
-                            }
-                        />
-                        <span className="ms-2 text-sm text-gray-600">
-                            Remember me
-                        </span>
+                {/* Remember Me */}
+                <div className="mb-6 flex items-center">
+                    <input
+                        id="remember"
+                        type="checkbox"
+                        checked={data.remember}
+                        onChange={(e) => setData('remember', e.target.checked)}
+                        className="h-4 w-4 text-green-400 focus:ring-green-500 border-gray-600 rounded"
+                    />
+                    <label htmlFor="remember" className="ml-2 text-sm text-green-200">
+                        Recordarme
                     </label>
                 </div>
 
-                <div className="mt-4 flex items-center justify-end">
+                {/* Botón y link */}
+                <div className="flex items-center justify-between">
                     {canResetPassword && (
                         <Link
                             href={route('password.request')}
-                            className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                            className="text-green-400 text-sm underline hover:text-green-300"
                         >
-                            Forgot your password?
+                            ¿Olvidaste tu contraseña?
                         </Link>
                     )}
 
-                    <PrimaryButton className="ms-4" disabled={processing}>
-                        Log in
-                    </PrimaryButton>
+                    <button
+                        type="submit"
+                        disabled={processing}
+                        className={`px-4 py-2 rounded-lg font-medium text-gray-900
+                                    ${processing ? 'bg-gray-600' : 'bg-green-400 hover:bg-green-500'} transition-colors duration-200`}
+                    >
+                        {processing ? 'Procesando...' : 'Iniciar Sesión'}
+                    </button>
+                </div>
+                {/* Botón de Google */}
+                <div className="mt-6">
+                   <GoogleLoginButton/>
                 </div>
             </form>
-        </GuestLayout>
+        </div>
     );
 }

@@ -66,7 +66,7 @@ export default function InstanceForm({
       {/* Nombre de instancia */}
       <div>
         <label className="block text-sm font-medium text-gray-200 mb-1">
-          Nombre de instancia
+          Nombre de la Empresa*
         </label>
         <input
           type="text"
@@ -78,7 +78,7 @@ export default function InstanceForm({
                 ? "border-red-500 focus:ring-red-500"
                 : "border-green-500 focus:ring-green-400"
             } bg-gray-800 text-white placeholder-gray-400`}
-          placeholder="Ej: MiEmpresaBot"
+          placeholder="Ej: MiEmpresa"
         />
         {submitted && errors.instanceName && (
           <p className="text-red-500 text-sm mt-1">{errors.instanceName}</p>
@@ -88,7 +88,7 @@ export default function InstanceForm({
       {/* Número de WhatsApp */}
       <div>
         <label className="block text-sm font-medium text-gray-200 mb-1">
-          Número de WhatsApp
+          Número de WhatsApp* (sin +)
         </label>
         <input
           type="text"
@@ -102,7 +102,7 @@ export default function InstanceForm({
                 ? "border-red-500 focus:ring-red-500"
                 : "border-green-500 focus:ring-green-400"
             } bg-gray-800 text-white placeholder-gray-400`}
-          placeholder="Ej: 5491123456789"
+          placeholder="Ej: 59165784147"
         />
         {submitted && errors.number && (
           <p className="text-red-500 text-sm mt-1">{errors.number}</p>

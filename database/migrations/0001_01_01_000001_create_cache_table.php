@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    // Evita errores de transacción en NeonDB/PostgreSQL
+    public $withinTransaction = false;
+
     /**
      * Run the migrations.
      */
@@ -29,7 +32,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('cache');
         Schema::dropIfExists('cache_locks');
+        Schema::dropIfExists('cache');
     }
 };

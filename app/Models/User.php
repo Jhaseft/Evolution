@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use App\Models\Instance;
 
 class User extends Authenticatable
 {
@@ -45,4 +46,13 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+    // Relación con las instancias
+    public function instances()
+{
+    return $this->hasMany(Instance::class);
+}
+
+
+
+
 }
