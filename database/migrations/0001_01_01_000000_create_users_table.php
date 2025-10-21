@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    // 👇 Esto es CLAVE para NeonDB / PostgreSQL
+    //  Esto es CLAVE para NeonDB / PostgreSQL
     public $withinTransaction = false;
 
     /**

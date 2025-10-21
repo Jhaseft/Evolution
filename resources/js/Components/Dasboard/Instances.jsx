@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link } from "@inertiajs/react";
 import axios from "axios";
+import EnviarModal from "@/Components/Dasboard/EnviarModal";
 
 export default function Instances() {
   const [instances, setInstances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false); // 🔹 estado para spinner global
-
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedInstance, setSelectedInstance] = useState(null);
   const fetchInstances = async () => {
     try {
       const res = await axios.get(route("evolution.list"));
@@ -116,12 +118,15 @@ export default function Instances() {
 
               {/* Botones */}
               <div className="flex gap-4 mt-8">
-                <Link
-                  href={route("evolution.groups", { instance: inst.id })}
+                <button
+                  onClick={() => {
+                    setSelectedInstance(inst);
+                    setIsModalOpen(true);
+                  }}
                   className="flex-1 px-5 py-3 bg-green-500/90 rounded-xl text-black font-semibold hover:bg-green-400 text-center shadow-md hover:shadow-lg transition-all duration-300"
                 >
-                  Grupos
-                </Link>
+                  Enviar
+                </button>
                 <button
                   onClick={() => handleDelete(inst.instance_name)}
                   className="flex-1 px-5 py-3 bg-red-700 rounded-xl text-white font-semibold 
@@ -141,6 +146,12 @@ export default function Instances() {
           Solo puedes tener <b>una instancia</b>. Elimina la actual para crear otra.
         </div>
       )}
+      
+      <EnviarModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        instance={selectedInstance}
+      />
     </div>
   );
 

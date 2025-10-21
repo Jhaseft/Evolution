@@ -28,22 +28,14 @@ Route::get('/evolution', fn() => Inertia::render('Evolution/Test'))->name('evolu
 Route::post('/evolution/create', [Evolution::class, 'create'])->name('evolution.create');
 Route::get('/evolution/status/{instanceName}', [Evolution::class, 'status'])->name('evolution.status');
 Route::delete('/evolution/destroy/{instanceName}', [Evolution::class, 'destroy'])->name('evolution.destroy');
-
-Route::delete('/evolution/groups/{group}', [GroupContactController::class, 'destroy'])
-    ->name('evolution.groups.destroy');
-
-Route::post('/evolution/groups/{instance}', [GroupContactController::class, 'store'])
-    ->name('evolution.groups.store');
-
-Route::get('/evolution/groups/{instanceId}/list', [GroupContactController::class, 'getGroups']);
-
-Route::get('/evolution/groups/{instance}', [GroupContactController::class, 'showPanel'])
-    ->name('evolution.groups');
+//message routes
+Route::post('/enviar-mensaje', [GroupContactController::class, 'enviarMensaje']);
+Route::get('/extraer-contactos/{instance}', [GroupContactController::class, 'extraerContactos'])->name('contactos.extraer');
 
 });
 
 
-// 🔓 RUTAS PÚBLICAS (sin BD, sin login)
+//  RUTAS PÚBLICAS (sin BD, sin login)
 Route::prefix('evolution/public')->group(function () {
     Route::get('/', fn() => Inertia::render('Evolution/PublicTest'))->name('evolution.public');
     Route::post('/create', [Evolution::class, 'createDirect'])->name('evolution.direct.create');
