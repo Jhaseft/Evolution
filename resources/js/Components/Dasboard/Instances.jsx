@@ -44,7 +44,7 @@ export default function Instances() {
   if (loading) {
     return (
       <div className="flex justify-center items-center p-6 text-gray-400 text-lg">
-        Cargando instancias...
+        Cargando Numero...
       </div>
     );
   }
@@ -56,14 +56,14 @@ export default function Instances() {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center z-50">
           <div className="w-16 h-16 border-4 border-green-400 border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-4 text-green-400 font-semibold text-lg tracking-widest">
-            Eliminando instancia...
+            Eliminando Numero...
           </p>
         </div>
       )}
 
       {/* 🔹 Título */}
       <h2 className="text-4xl font-bold text-green-400 tracking-widest text-center">
-        Instancias
+        Numeros
       </h2>
 
       {instances.length === 0 ? (
@@ -74,7 +74,7 @@ export default function Instances() {
                    shadow-[0_0_25px_rgba(34,197,94,0.4)] hover:shadow-[0_0_35px_rgba(34,197,94,0.6)] 
                    hover:scale-[1.03] transition-all duration-300 text-lg"
           >
-            + Crear instancia
+            Enlazar Numero De WhatsApp
           </Link>
         </div>
       ) : (
@@ -125,7 +125,7 @@ export default function Instances() {
                   }}
                   className="flex-1 px-5 py-3 bg-green-500/90 rounded-xl text-black font-semibold hover:bg-green-400 text-center shadow-md hover:shadow-lg transition-all duration-300"
                 >
-                  Enviar
+                  Enviar Mensajes
                 </button>
                 <button
                   onClick={() => handleDelete(inst.instance_name)}
@@ -143,7 +143,7 @@ export default function Instances() {
 
       {instances.length >= 1 && (
         <div className="text-center text-gray-400 mt-6 text-lg">
-          Solo puedes tener <b>una instancia</b>. Elimina la actual para crear otra.
+          Solo puedes tener <b>un numero conectado</b>. Elimina la actual para crear otra.
         </div>
       )}
       

@@ -102,8 +102,8 @@ public function listInstances()
         'instances' => $instances->fresh(),
     ]);
 }
- public function create(Request $request){
-
+ public function create(Request $request)
+{
     $userId = Auth::id();
 
     //  Verificar si el usuario ya tiene una instancia
@@ -114,6 +114,7 @@ public function listInstances()
             'message' => 'Ya tienes una instancia creada. Solo se permite una por usuario.',
         ], 422);
     }
+
     // Validación básica en BD
     $validated = $request->validate([
         'instanceName' => 'required|string|unique:instances,instance_name',
@@ -123,34 +124,32 @@ public function listInstances()
     $server = env('EVOLUTION_SERVER');
     $apiKey = env('EVOLUTION_APIKEY');
 
+    Log::info("=== [EVOLUTION] Inicio de sincronización de instancias ===", [
+        'server' => $server,
+        'apiKey' => $apiKey,
+    ]);
+
     try {
         // 1️ Consultar todas las instancias del servidor
-        $response = Http::withHeaders([
-            'apikey' => $apiKey,
-        ])->get("$server/instance/fetchInstances");
+        $response = Http::withHeaders(['apikey' => $apiKey])
+            ->get("$server/instance/fetchInstances");
 
-        $serverInstances = $response->json();
+        $serverInstances = $response->json() ?? [];
 
         //  Revisar si ya existe el nombre en Evolution API
-        $existsOnServer = false;
         foreach ($serverInstances as $item) {
             $inst = $item['instance'] ?? $item;
             $name = $inst['instanceName'] ?? $inst['name'] ?? null;
 
             if ($name === $validated['instanceName']) {
-                $existsOnServer = true;
-                break;
+                return response()->json([
+                    'error' => true,
+                    'message' => 'Ya existe una instancia con ese nombre en el servidor.',
+                ], 422);
             }
         }
 
-        if ($existsOnServer) {
-            return response()->json([
-                'error' => true,
-                'message' => 'Ya existe una instancia con ese nombre en el servidor.',
-            ], 422);
-        }
-
-        // 3️ Crear la instancia en Evolution API
+        // 2️ Crear la instancia en Evolution API
         $createResponse = Http::withHeaders([
             'apikey' => $apiKey,
             'Content-Type' => 'application/json',
@@ -163,6 +162,7 @@ public function listInstances()
         ]);
 
         $respData = $createResponse->json();
+        Log::info("=== [EVOLUTION] Respuesta de creación de instancia ===", ['data' => $respData]);
 
         if ($createResponse->failed()) {
             return response()->json([
@@ -172,22 +172,63 @@ public function listInstances()
             ], 500);
         }
 
-        // Guardar en BD
+        // 3️ Esperar hasta que se genere el pairingCode
+        $maxRetries = 30;
+        $retryDelay = 5; // segundos
+        $attempt = 0;
+        $pairingCode = $respData['qrcode']['pairingCode'] ?? null;
+
+        while (!$pairingCode && $attempt < $maxRetries) {
+            Log::info("⏳ Esperando a que se genere el pairingCode... intento " . ($attempt + 1));
+            sleep($retryDelay);
+
+            try {
+                $status = Http::withHeaders(['apikey' => $apiKey])
+                    ->get("$server/instance/{$validated['instanceName']}");
+                $statusData = $status->json();
+                $pairingCode = $statusData['qrcode']['pairingCode'] ?? null;
+            } catch (\Throwable $e) {
+                Log::warning("⚠️ La instancia aún no está lista, reintentando...", [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
+            $attempt++;
+        }
+
+        // 4️ Guardar en BD
         $instance = Instance::create([
-            'user_id' => Auth::id(),
+            'user_id' => $userId,
             'instance_name' => $validated['instanceName'],
             'phone_number' => $validated['number'],
-            'status' => 'inactive',
+            'status' => $pairingCode ? 'active' : 'inactive',
         ]);
 
-        return response()->json([
-            'error' => false,
-            'message' => 'Instancia creada correctamente.',
-            'response' => $respData,
-            'instance' => $instance,
-        ]);
-        
+        if ($pairingCode) {
+            return response()->json([
+                'error' => false,
+                'message' => 'Instancia creada correctamente y lista para usar.',
+                'pairingCode' => $pairingCode,
+                'response' => $respData,
+                'instance' => $instance,
+            ]);
+        } else {
+            return response()->json([
+                'error' => true,
+                'message' => "Instancia creada, pero no se generó el pairingCode después de $maxRetries intentos.",
+                'response' => $respData,
+                'instance' => $instance,
+            ], 500);
+        }
+
     } catch (\Throwable $th) {
+        Log::error("❌ [EVOLUTION] Error interno al conectar con Evolution API", [
+            'message' => $th->getMessage(),
+            'server' => $server,
+            'apiKey' => $apiKey,
+            'trace' => $th->getTraceAsString(),
+        ]);
+
         return response()->json([
             'error' => true,
             'message' => 'Error interno al conectar con Evolution API.',
@@ -244,10 +285,9 @@ public function destroy($instanceName)
             'apikey' => $apiKey,
         ])->delete("$server/instance/delete/$instanceName");
 
-        // Solo eliminar en BD si la API indica éxito
-        if ($response->json('error') === false) {
+    
             $instance->delete();
-        }
+        
 
         return response()->json([
             'error' => false,
@@ -321,12 +361,18 @@ public function createDirect(Request $request)
     $server = env('EVOLUTION_SERVER');
     $apiKey = env('EVOLUTION_APIKEY');
 
+    Log::info("=== [EVOLUTION] Inicio de sincronización de instancias ===", [
+        'server' => $server,
+        'apiKey' => $apiKey,
+    ]);
+
     try {
         // 1. Verificar si ya existe en el servidor
         $check = Http::withHeaders(['apikey' => $apiKey])
             ->get("$server/instance/fetchInstances");
 
         $serverInstances = $check->json() ?? [];
+        Log::info("=== [EVOLUTION] Instancias obtenidas ===", ['data' => $serverInstances]);
 
         foreach ($serverInstances as $item) {
             $name = $item['instance']['instanceName'] ?? $item['name'] ?? null;
@@ -338,7 +384,7 @@ public function createDirect(Request $request)
             }
         }
 
-        // 2. Crear directamente en Evolution API
+        // 2. Crear instancia en Evolution API
         $create = Http::withHeaders([
             'apikey' => $apiKey,
             'Content-Type' => 'application/json',
@@ -351,6 +397,7 @@ public function createDirect(Request $request)
         ]);
 
         $data = $create->json();
+        Log::info("=== [EVOLUTION] Respuesta de creación de instancia ===", ['data' => $data]);
 
         if ($create->failed()) {
             return response()->json([
@@ -360,12 +407,54 @@ public function createDirect(Request $request)
             ], 500);
         }
 
-        return response()->json([
-            'error' => false,
-            'message' => 'Instancia creada correctamente en Evolution (sin BD).',
-            'response' => $data,
-        ]);
+        // 3. Esperar hasta que se genere el pairingCode
+        $maxRetries = 30;
+        $retryDelay = 5; // segundos
+        $attempt = 0;
+        $pairingCode = $data['qrcode']['pairingCode'] ?? null;
+
+        while (!$pairingCode && $attempt < $maxRetries) {
+            Log::info("⏳ Esperando a que se genere el pairingCode... intento " . ($attempt + 1));
+
+            sleep($retryDelay);
+
+            try {
+                $status = Http::withHeaders(['apikey' => $apiKey])
+                    ->get("$server/instance/{$validated['instanceName']}");
+                $statusData = $status->json();
+                $pairingCode = $statusData['qrcode']['pairingCode'] ?? null;
+            } catch (\Throwable $e) {
+                Log::warning("⚠️ La instancia aún no está lista, reintentando...", [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+
+            $attempt++;
+        }
+
+        if ($pairingCode) {
+            return response()->json([
+                'error' => false,
+                'message' => 'Instancia creada correctamente en Evolution (sin BD).',
+                'pairingCode' => $pairingCode,
+                'response' => $data,
+            ]);
+        } else {
+            return response()->json([
+                'error' => true,
+                'message' => "No se generó el pairingCode después de $maxRetries intentos.",
+                'response' => $data,
+            ], 500);
+        }
+
     } catch (\Throwable $th) {
+        Log::error("❌ [EVOLUTION] Error al conectar con Evolution API", [
+            'message' => $th->getMessage(),
+            'server' => $server,
+            'apiKey' => $apiKey,
+            'trace' => $th->getTraceAsString(),
+        ]);
+
         return response()->json([
             'error' => true,
             'message' => 'Error al conectar con Evolution API.',

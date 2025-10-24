@@ -1,6 +1,5 @@
 import axios from "axios";
 import { useState, useEffect } from "react";
-import { Inertia } from "@inertiajs/inertia";
 import InstanceForm from "@/Components/Evolution/IntanceForm";
 import PairingModal from "@/Components/Evolution/PairingModal";
 
@@ -20,7 +19,7 @@ export default function PublicTest() {
     setProcessing(true);
     setMessage({ type: "", text: "" });
     setConnectionState("pending");
-
+ 
     try {
       const res = await axios.post("/evolution/public/create", { instanceName, number });
 

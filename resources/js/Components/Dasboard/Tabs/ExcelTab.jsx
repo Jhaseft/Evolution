@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import axios from "axios";
 import EnviarMensajeForm from "@/Components/Dasboard/EnviarMensajeForm";
-import { Download, Upload } from "lucide-react";
+import { Download, Upload, Loader2 } from "lucide-react";
 
 export default function ExcelTab({ instance }) {
   const [file, setFile] = useState(null);
   const [numbers, setNumbers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [progreso, setProgreso] = useState({ actual: 0, total: 0 });
+  const cancelToken = useRef(null);
 
-  // Descargar plantilla
   const handleDownloadTemplate = () => {
     const link = document.createElement("a");
     link.href = "/plantilla_envio.xlsx";
@@ -19,7 +20,6 @@ export default function ExcelTab({ instance }) {
     document.body.removeChild(link);
   };
 
-  // Leer Excel
   const handleFileUpload = async (e) => {
     const selectedFile = e.target.files[0];
     setFile(selectedFile);
@@ -31,7 +31,6 @@ export default function ExcelTab({ instance }) {
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
       const sheetData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
 
-      // Extraer solo los valores de la columna A (ignorando encabezados vacíos)
       const numeros = sheetData
         .map((row) => row[0])
         .filter((n) => typeof n === "string" || typeof n === "number")
@@ -39,45 +38,66 @@ export default function ExcelTab({ instance }) {
         .filter((n) => n !== "");
 
       setNumbers(numeros);
-      console.log(" Números leídos del Excel:", numeros);
     } catch (error) {
-      console.error(" Error leyendo Excel:", error);
+      console.error("Error leyendo Excel:", error);
       alert("Hubo un error al leer el archivo. Verifica el formato.");
     }
   };
 
-  // Enviar mensajes a todos los números del Excel
-  const handleSend = async (data) => {
-    if (!numbers.length) {
-      return alert("No se detectaron números en el archivo Excel.");
-    }
-
-    try {
-      setLoading(true);
-
-      const formData = new FormData();
-      formData.append("instance", instance.instance_name);
-      formData.append("tipo", data.tipo);
-      formData.append("contenido", data.contenido || "");
-
-      numbers.forEach((num, i) => formData.append(`numbers[${i}]`, num));
-      if (data.archivo) formData.append("archivo", data.archivo);
-
-      await axios.post("/enviar-mensaje", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      alert(" Mensajes enviados correctamente.");
-    } catch (err) {
-      console.error(err);
-      alert(" Error al enviar los mensajes.");
-    } finally {
+  const handleCancel = () => {
+    if (cancelToken.current) {
+      cancelToken.current.abort();
       setLoading(false);
+      setProgreso({ actual: 0, total: 0 });
+      alert("❌ Envío cancelado por el usuario.");
     }
   };
 
+  const handleSend = async (data) => {
+    if (!numbers.length) return alert("No se detectaron números en el archivo Excel.");
+    if (numbers.length > 140)
+      return alert(`⚠️ Se detectaron ${numbers.length} números. El límite máximo permitido es 140.`);
+
+    try {
+      setLoading(true);
+      cancelToken.current = new AbortController();
+      setProgreso({ actual: 0, total: numbers.length });
+
+      for (let i = 0; i < numbers.length; i++) {
+        const num = numbers[i];
+        const formData = new FormData();
+        formData.append("instance", instance.instance_name);
+        formData.append("tipo", data.tipo);
+        formData.append("contenido", data.contenido || "");
+        formData.append("numbers[0]", num);
+        if (data.archivo) formData.append("archivo", data.archivo);
+
+        await axios.post("/enviar-mensaje", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+          signal: cancelToken.current.signal,
+        });
+
+        setProgreso({ actual: i + 1, total: numbers.length });
+      }
+
+      alert("✅ Mensajes enviados correctamente.");
+    } catch (err) {
+      if (err.name === "CanceledError" || err.code === "ERR_CANCELED") {
+        console.warn("Envío cancelado.");
+      } else {
+        console.error(err);
+        alert("⚠️ Error al enviar los mensajes.");
+      }
+    } finally {
+      setLoading(false);
+      setProgreso({ actual: 0, total: 0 });
+    }
+  };
+
+  const isSendDisabled = numbers.length > 170;
+
   return (
-    <div className="animate-fadeIn flex flex-col items-center justify-center h-full space-y-8">
+    <div className="animate-fadeIn flex flex-col items-center justify-center h-full space-y-8 relative">
       <h3 className="text-2xl font-bold text-green-400 md:mt-72 mt-80">
         Envío por Excel
       </h3>
@@ -108,28 +128,39 @@ export default function ExcelTab({ instance }) {
         </label>
       </div>
 
-      {/* Mostrar archivo y números detectados */}
       {file && (
         <div className="text-sm text-center">
           <p className="text-green-400">
-             Archivo seleccionado: <strong>{file.name}</strong>
+            Archivo seleccionado: <strong>{file.name}</strong>
           </p>
-          <p className="text-gray-400">
+          <p className={`text-gray-400 ${numbers.length > 170 ? "text-red-500 font-bold" : ""}`}>
             {numbers.length > 0
-              ? ` ${numbers.length} números detectados`
+              ? `${numbers.length} números detectados`
               : "Esperando lectura del archivo..."}
+            {numbers.length > 170 && " ⚠️ Límite máximo permitido: 170. No se podrá enviar."}
           </p>
         </div>
       )}
 
-      {/* Formulario de tipo de envío */}
       <div className="w-full max-w-xl">
-        <EnviarMensajeForm onSend={handleSend} />
+        <EnviarMensajeForm onSend={handleSend} disabled={isSendDisabled} />
       </div>
 
       {loading && (
-        <div className="text-green-400 text-sm animate-pulse text-center">
-          Enviando mensajes...
+        <div className="fixed inset-0 bg-black/70 flex flex-col items-center justify-center z-50">
+          <Loader2 className="animate-spin text-green-400 w-16 h-16 mb-6" />
+          <p className="text-green-300 text-lg font-semibold mb-2">
+            Enviando mensajes, por favor espera...
+          </p>
+          <p className="text-gray-200 text-sm mb-6">
+            {progreso.actual}/{progreso.total} enviados
+          </p>
+          <button
+            onClick={handleCancel}
+            className="px-6 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-semibold shadow-md transition"
+          >
+            Cancelar envío
+          </button>
         </div>
       )}
     </div>

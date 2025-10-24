@@ -22,7 +22,7 @@ export default function ContactosTab({ instance }) {
 
       URL.revokeObjectURL(link.href);
     } catch (error) {
-      console.error("❌ Error al extraer contactos:", error);
+      console.error(" Error al extraer contactos:", error);
       alert("Error al obtener los contactos.");
     }
   };
@@ -31,7 +31,7 @@ export default function ContactosTab({ instance }) {
     <div className="flex flex-col items-center justify-center h-full">
       <h3 className="text-xl font-bold text-green-400 mb-4">Extraer contactos</h3>
       <p className="text-gray-400 mb-6 text-center">
-        Esta sección permitirá obtener los contactos desde la instancia
+        Esta sección permitirá obtener los contactos de tu Numero Enlazado
         <br />
         <span className="text-green-400 font-mono">
           ({instance?.instance_name})

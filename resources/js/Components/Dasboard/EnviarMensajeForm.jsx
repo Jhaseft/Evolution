@@ -1,17 +1,16 @@
 import { useState } from "react";
 
-export default function EnviarMensajeForm({ onSend }) {
+export default function EnviarMensajeForm({ onSend, disabled = false }) {
   const [tipo, setTipo] = useState("mensaje");
   const [mensaje, setMensaje] = useState("");
   const [archivo, setArchivo] = useState(null);
   const [preview, setPreview] = useState(null);
-  const [contenidoMedia, setContenidoMedia] = useState(""); // Campo opcional para imagen/video/documento
+  const [contenidoMedia, setContenidoMedia] = useState("");
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setArchivo(file);
 
-    // Vista previa solo para imagen o video
     if (file && (tipo === "imagen" || tipo === "video")) {
       setPreview(URL.createObjectURL(file));
     } else {
@@ -20,6 +19,8 @@ export default function EnviarMensajeForm({ onSend }) {
   };
 
   const handleSend = () => {
+    if (disabled) return; // No dejar enviar si está deshabilitado
+
     if (tipo === "mensaje" && !mensaje.trim()) {
       return alert("Por favor, escribe un mensaje.");
     }
@@ -91,7 +92,6 @@ export default function EnviarMensajeForm({ onSend }) {
             />
           </label>
 
-          {/* Campo opcional de contenido */}
           <label className="block">
             <span className="text-gray-400 text-sm">Contenido (opcional):</span>
             <textarea
@@ -103,7 +103,6 @@ export default function EnviarMensajeForm({ onSend }) {
             />
           </label>
 
-          {/* Vista previa solo para imagen y video */}
           {preview && (
             <div className="mt-3 flex justify-center">
               {tipo === "imagen" && (
@@ -127,9 +126,19 @@ export default function EnviarMensajeForm({ onSend }) {
 
       {/* Botón enviar */}
       <div className="text-center pt-2">
+        {disabled && (
+          <p className="text-red-500 font-bold mb-2">
+             Se superó el límite máximo de números permitidos. No se puede enviar.
+          </p>
+        )}
         <button
           onClick={handleSend}
-          className="px-8 py-3 bg-green-600 hover:bg-green-500 text-black font-bold rounded-xl shadow-lg transition-all duration-300"
+          disabled={disabled}
+          className={`px-8 py-3 font-bold rounded-xl shadow-lg transition-all duration-300
+            ${disabled
+              ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+              : "bg-green-600 hover:bg-green-500 text-black"
+            }`}
         >
           Enviar {tipo}
         </button>

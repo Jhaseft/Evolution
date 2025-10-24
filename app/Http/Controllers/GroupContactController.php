@@ -11,122 +11,157 @@ use Illuminate\Support\Facades\Response;
 
 class GroupContactController extends Controller
 {
-    public function enviarMensaje(Request $request)
-    {
-        $validated = $request->validate([
-            'instance'  => 'required|string',
-            'numbers'   => 'required|array|min:1',
-            'tipo'      => 'required|string',
-            'contenido' => 'nullable|string',
-            'archivo'   => 'nullable|file'
-        ]);
+   public function enviarMensaje(Request $request)
+{
+    // ✅ Validar datos básicos
+    $validated = $request->validate([
+        'instance'  => 'required|string',
+        'numbers'   => 'required|array|min:1',
+        'tipo'      => 'required|string',
+        'contenido' => 'nullable|string',
+        'archivo'   => 'nullable|file'
+    ]);
 
-        $serverUrl = env('EVOLUTION_SERVER');
-        $apiKey    = env('EVOLUTION_APIKEY');
+    $serverUrl = env('EVOLUTION_SERVER');
+    $apiKey    = env('EVOLUTION_APIKEY');
+    $tipo      = $validated['tipo'];
 
-        Log::info('📩 [Inicio de envío de mensaje Evolution]', [
-            'instance'  => $validated['instance'],
-            'tipo'      => $validated['tipo'],
-            'numbers'   => $validated['numbers'],
-            'contenido' => $validated['contenido'],
-        ]);
+    // 🚀 Desactivar límites del servidor PHP
+    set_time_limit(0);
+    ignore_user_abort(true);
 
-        try {
-            $tipo = $validated['tipo'];
+    // ⚠️ Limitar total de números a 140
+    $numbers = array_slice($validated['numbers'], 0, 140);
 
-            if ($tipo === 'mensaje') {
-                // Enviar mensajes de texto
-                foreach ($validated['numbers'] as $number) {
-                    $payload = [
-                        'number'      => $number,
-                        'text'        => $validated['contenido'],
-                        'delay'       => 100,
-                        'linkPreview' => true,
-                    ];
+    Log::info('📩 [Inicio de envío masivo Evolution]', [
+        'instance'      => $validated['instance'],
+        'tipo'          => $tipo,
+        'total_numeros' => count($numbers),
+    ]);
 
-                    Log::info("📤 Enviando mensaje de texto a $number", $payload);
+    try {
+        // ⚙️ Parámetros configurables
+        $batchSize = 70;                 // Lotes de 70 personas
+        $pauseBetweenBatches = 600;      // 10 minutos entre lotes
+        $pauseBetweenMessages = rand(1, 2); // Pausa aleatoria entre mensajes
+        $maxRetries = 3;                 // Reintentos si falla
 
-                    $response = Http::withHeaders([
-                        'Content-Type' => 'application/json',
-                        'apikey'       => $apiKey,
-                    ])->post("$serverUrl/message/sendText/{$validated['instance']}", $payload);
+        // 🧩 Dividir los números en lotes
+        $numbersChunks = array_chunk($numbers, $batchSize);
+        $totalLotes = count($numbersChunks);
+        $loteActual = 1;
 
-                    Log::info("📥 Respuesta Evolution ($number):", [
-                        'status' => $response->status(),
-                        'body'   => $response->json(),
-                    ]);
-                }
-            } else {
-                // Validar archivo
-                if (!$request->hasFile('archivo')) {
-                    return response()->json(['error' => 'No se envió ningún archivo.'], 400);
-                }
-
-                $file = $request->file('archivo');
-                $mime = $file->getMimeType();
-
-                // Determinar mediatype
-                if (str_starts_with($mime, 'image/')) {
-                    $mediatype = 'image';
-                } elseif (str_starts_with($mime, 'video/')) {
-                    $mediatype = 'video';
-                } elseif (str_starts_with($mime, 'audio/')) {
-                    $mediatype = 'audio';
-                } else {
-                    $mediatype = 'document';
-                }
-
-                // Convertir a base64
-                $mediaContent = base64_encode(file_get_contents($file->getRealPath()));
-
-                Log::info('📦 Archivo detectado', [
-                    'nombre'    => $file->getClientOriginalName(),
-                    'tipo'      => $mime,
-                    'mediatype' => $mediatype,
-                    'tamaño_kb' => round($file->getSize() / 1024, 2),
-                ]);
-
-                // Enviar media a todos los números
-                foreach ($validated['numbers'] as $number) {
-                    $payload = [
-                        'number'    => $number,
-                        'mediatype' => $mediatype,
-                        'mimetype'  => $mime,
-                        'caption'   => $validated['contenido'] ?? '',
-                        'media'     => $mediaContent,
-                        'fileName'  => $file->getClientOriginalName(),
-                        'delay'     => 100,
-                    ];
-
-                    Log::info("📤 Enviando media a $number", $payload);
-
-                    $response = Http::withHeaders([
-                        'apikey' => $apiKey,
-                    ])->post("$serverUrl/message/sendMedia/{$validated['instance']}", $payload);
-
-                    Log::info("📥 Respuesta Evolution (media a $number):", [
-                        'status' => $response->status(),
-                        'body'   => $response->json(),
-                    ]);
-                }
+        // 📎 Preparar archivo si aplica
+        $mediaInfo = null;
+        if ($tipo !== 'mensaje') {
+            if (!$request->hasFile('archivo')) {
+                return response()->json(['error' => 'No se envió ningún archivo.'], 400);
             }
 
-            Log::info(' [Envío completado correctamente]');
-            return response()->json(['success' => true, 'message' => 'Mensajes enviados correctamente.']);
+            $file = $request->file('archivo');
+            $mime = $file->getMimeType();
 
-        } catch (\Throwable $th) {
-            Log::error(' [Error al enviar mensaje Evolution]', [
-                'mensaje' => $th->getMessage(),
-                'linea'   => $th->getLine(),
-                'archivo' => $th->getFile(),
-            ]);
+            if (str_starts_with($mime, 'image/')) {
+                $mediatype = 'image';
+            } elseif (str_starts_with($mime, 'video/')) {
+                $mediatype = 'video';
+            } elseif (str_starts_with($mime, 'audio/')) {
+                $mediatype = 'audio';
+            } else {
+                $mediatype = 'document';
+            }
 
-            return response()->json([
-                'success' => false,
-                'error'   => $th->getMessage(),
-            ], 500);
+            $mediaInfo = [
+                'mediatype' => $mediatype,
+                'mimetype'  => $mime,
+                'media'     => base64_encode(file_get_contents($file->getRealPath())),
+                'fileName'  => $file->getClientOriginalName(),
+            ];
+
+            Log::info("📦 Archivo preparado: {$mediaInfo['fileName']} ({$mediaInfo['mimetype']}) [{$mediaInfo['mediatype']}]");
         }
+
+        // 🔁 Enviar por lotes
+        foreach ($numbersChunks as $chunk) {
+            Log::info("🚀 Lote $loteActual/$totalLotes (".count($chunk)." números)");
+
+            foreach ($chunk as $number) {
+                $success = false;
+                $attempt = 0;
+
+                while (!$success && $attempt < $maxRetries) {
+                    try {
+                        $attempt++;
+
+                        $payload = ($tipo === 'mensaje')
+                            ? [
+                                'number'      => $number,
+                                'text'        => $validated['contenido'] ?? '',
+                                'delay'       => 100,
+                                'linkPreview' => true,
+                              ]
+                            : [
+                                'number'    => $number,
+                                'mediatype' => $mediaInfo['mediatype'],
+                                'mimetype'  => $mediaInfo['mimetype'],
+                                'caption'   => $validated['contenido'] ?? '',
+                                'media'     => $mediaInfo['media'],
+                                'fileName'  => $mediaInfo['fileName'],
+                                'delay'     => 100,
+                              ];
+
+                        $endpoint = ($tipo === 'mensaje')
+                            ? "$serverUrl/message/sendText/{$validated['instance']}"
+                            : "$serverUrl/message/sendMedia/{$validated['instance']}";
+
+                        $response = Http::withHeaders([
+                            'apikey' => $apiKey,
+                            'Content-Type' => 'application/json',
+                        ])->timeout(30)->post($endpoint, $payload);
+
+                        $status = $response->status();
+                        if ($status >= 200 && $status < 300) {
+                            Log::info("✅ [$number] Enviado correctamente (intento $attempt)");
+                            $success = true;
+                        } else {
+                            Log::warning("⚠️ [$number] Error HTTP $status (intento $attempt)");
+                            sleep(2);
+                        }
+                    } catch (\Throwable $th) {
+                        Log::error("❌ [$number] Falla en intento $attempt: " . $th->getMessage());
+                        sleep(3);
+                    }
+                }
+
+                sleep($pauseBetweenMessages);
+            }
+
+            // Pausa larga entre lotes grandes
+            if ($loteActual < $totalLotes) {
+                Log::info("⏸️ Lote $loteActual completado. Pausa de {$pauseBetweenBatches}s antes del siguiente lote...");
+                sleep($pauseBetweenBatches);
+            }
+
+            $loteActual++;
+        }
+
+        Log::info('✅ [Envío masivo completado]');
+        return response()->json(['success' => true, 'message' => 'Mensajes enviados correctamente.']);
+
+    } catch (\Throwable $th) {
+        Log::error('❌ [Error global en envío Evolution]', [
+            'mensaje' => $th->getMessage(),
+            'linea'   => $th->getLine(),
+            'archivo' => $th->getFile(),
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'error'   => $th->getMessage(),
+        ], 500);
     }
+}
+
 
 
     public function extraerContactos($instance)
