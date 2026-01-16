@@ -55,9 +55,7 @@ export default function ExcelTab({ instance }) {
 
   const handleSend = async (data) => {
     if (!numbers.length) return alert("No se detectaron números en el archivo Excel.");
-    if (numbers.length > 140)
-      return alert(`⚠️ Se detectaron ${numbers.length} números. El límite máximo permitido es 140.`);
-
+  
     try {
       setLoading(true);
       cancelToken.current = new AbortController();

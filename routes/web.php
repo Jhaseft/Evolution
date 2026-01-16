@@ -46,4 +46,6 @@ Route::prefix('evolution/public')->group(function () {
 
 Route::get('/auth/google/redirect', [SocialController::class, 'redirectToGoogle'])->name('google.redirect');
 Route::get('/auth/google/callback', [SocialController::class, 'handleGoogleCallback'])->name('google.callback');
+
+
 require __DIR__.'/auth.php';

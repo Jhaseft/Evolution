@@ -41,7 +41,7 @@ export default function EnviarMensajeForm({ onSend, disabled = false }) {
       <label className="block">
         <span className="text-gray-400 text-sm">Tipo de envío:</span>
         <select
-          value={tipo}
+          value={tipo} 
           onChange={(e) => {
             setTipo(e.target.value);
             setArchivo(null);

@@ -18,8 +18,7 @@ export default function ManualTab({ instance }) {
   // Contador de números
   const totalNumeros = numbersArray.length;
 
-  // Determinar si se debe deshabilitar el envío
-  const disabled = totalNumeros > 170;
+  
 
   // Cancelar envío
   const handleCancel = () => {
@@ -33,7 +32,6 @@ export default function ManualTab({ instance }) {
 
   const handleSend = async (data) => {
     if (!numbersArray.length) return alert("Debes ingresar al menos un número.");
-    if (disabled) return alert(`⚠️ Se detectaron ${totalNumeros} números. El límite máximo permitido es 170.`);
 
     try {
       setLoading(true);
