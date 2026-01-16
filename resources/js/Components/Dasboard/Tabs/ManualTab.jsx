@@ -8,7 +8,6 @@ export default function ManualTab({ instance }) {
   const [loading, setLoading] = useState(false);
   const [progreso, setProgreso] = useState({ actual: 0, total: 0 });
   const cancelToken = useRef(null);
-
   // Convertir texto a array de números
   const numbersArray = numeros
     .split(",")
@@ -18,7 +17,9 @@ export default function ManualTab({ instance }) {
   // Contador de números
   const totalNumeros = numbersArray.length;
 
-  
+  // Estado disabled (❗ AQUÍ ESTABA EL PROBLEMA)
+  const MAX_NUMEROS = 100;
+  const disabled = totalNumeros > MAX_NUMEROS || loading;
 
   // Cancelar envío
   const handleCancel = () => {
